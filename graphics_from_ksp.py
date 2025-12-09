@@ -11,7 +11,7 @@ altitude_values = []
 speed_values = []
 
 print("Сбор данных начат...")
-print("Для построения графиков надо нажать Ctrl + C в консоли")
+print("Если нужно построить графики, остановите программу.")
 
 try:
     while conn.krpc.current_game_scene == conn.krpc.GameScene.flight:
@@ -30,12 +30,9 @@ try:
         speed_values.append(speed)
 
 except KeyboardInterrupt:
-    print("\nОстановка пользователем (Ctrl+C). Строим графики...")
-
-# рисуем графики
+    print("\nОстановка . Строим графики...")
 
 if time_values:
-    # Сдвигаем время так, чтобы начиналось с нуля
     t0 = time_values[0]
     time_values = [ti - t0 for ti in time_values]
 
@@ -57,4 +54,3 @@ if time_values:
     plt.show()
 else:
     print("Данных нет")
-
