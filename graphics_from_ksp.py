@@ -11,7 +11,7 @@ altitude_values = []
 speed_values = []
 
 print("Сбор данных начат...")
-print("Когда захочешь построить графики, нажми Ctrl+C в консоли PyCharm.")
+print("Для построения графиков надо нажать Ctrl + C в консоли")
 
 try:
     while conn.krpc.current_game_scene == conn.krpc.GameScene.flight:
@@ -22,19 +22,17 @@ try:
             speed = vessel.flight(body.reference_frame).speed
 
         except (krpc.error.RPCError, krpc.error.ConnectionError):
-            print("Связь с kRPC потеряна, выходим из цикла")
+            print("Связь с kRPC потеряна, выход из цикла")
             break
 
         time_values.append(t)
         altitude_values.append(altitude)
         speed_values.append(speed)
 
-        # никаких условий выхода по высоте/орбите — только твой Ctrl+C
-
 except KeyboardInterrupt:
     print("\nОстановка пользователем (Ctrl+C). Строим графики...")
 
-# ---- дальше как раньше: рисуем графики ----
+# рисуем графики
 
 if time_values:
     # Сдвигаем время так, чтобы начиналось с нуля
@@ -59,3 +57,4 @@ if time_values:
     plt.show()
 else:
     print("Данных нет")
+
