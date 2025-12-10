@@ -27,24 +27,24 @@ REF_AREA = 172  # Площадь миделя, м^2
 
 # Время работы этапов, с
 STAGE1_TIME    = 123    # I ступень
-STAGE2_TIME    = 218     # II ступень
-STAGE3_TIME    = 242     # III ступень
-COAST1_TIME    = 500     # Автономный полет
-BREEZE1_TIME   = 270     # 1-й запуск РБ "Бриз-М"
-COAST2_TIME    = 3000    # Автономный полет
-BREEZE2_TIME   = 1080    # 2-й запуск РБ "Бриз-М"
-COAST3_TIME    = 20000    # Автономный полет
-BREEZE3_TIME   = 1200    # 3-й запуск РБ "Бриз-М"
-COAST4_TIME    = 84000   # Автономный полет
+STAGE2_TIME    = 218    # II ступень
+STAGE3_TIME    = 242    # III ступень
+COAST1_TIME    = 500    # Автономный полет
+BREEZE1_TIME   = 270    # 1-й запуск РБ "Бриз-М"
+COAST2_TIME    = 3000   # Автономный полет
+BREEZE2_TIME   = 1080   # 2-й запуск РБ "Бриз-М"
+COAST3_TIME   = 20000   # Автономный полет
+BREEZE3_TIME   = 1200   # 3-й запуск РБ "Бриз-М"
+COAST4_TIME    = 84000  # Автономный полет
 
 # Массы ступеней, кг
 MASS_STAGE1   = 458.9 * 1000   # I ступень
 MASS_STAGE2   = 168.3 * 1000   # II ступень
-MASS_STAGE3   = 46.562 * 1000   # III ступень
+MASS_STAGE3   = 46.562 * 1000  # III ступень
 MASS_BREEZE1  = 6.565 * 1000   # РБ "Бриз-М" (1-й этап)
 MASS_BREEZE2  = 5.871 * 1000   # РБ "Бриз-М" (2-й этап)
 MASS_BREEZE3  = 3.095 * 1000   # РБ "Бриз-М" (3-й этап)
-MASS_PAYLOAD  = 2210         # Спутник "Экран-М"
+MASS_PAYLOAD  = 2210           # Спутник "Экран-М"
 
 
 # Вспомогательные функции
@@ -66,23 +66,60 @@ def lookup_drag_coefficient(mach):
 
 # Атмосфера и аэродинамика
 
-def temperature_profile(h, t0_celsius):
-    """Температура воздуха как функция высоты (упрощённая модель)."""
-    return max(h * (-0.0065) + t0_celsius, 4 - 273.15)
+def temperature_profile(height, t0_celsius):
+    """
+    Температура как функция высоты (стандартная атмосфера, кусочная модель).
+    Возвращает температуру в Кельвинах.
+    """
+    t0_K = t0_celsius + 273.15  # температура на уровне моря в Кельвинах
+
+    if height <= 11000:
+        # Линейное падение до тропопаузы
+        return t0_K - 6.5 * height / 1000.0
+
+    elif 11000 < height <= 20000:
+        # Изотермический слой
+        return 221.65
+
+    elif 20000 < height <= 32000:
+        # Лёгкий подъём
+        return 216.65 + (height - 20000) / 1000.0
+
+    elif 32000 < height <= 40000:
+        # Используем значение на 32 км + градиент
+        return temperature_profile(32000, t0_celsius) + 2.75 * (height - 32000) / 1000.0
+
+    elif 40000 < height <= 50000:
+        return temperature_profile(40000, t0_celsius) + 2.0 * (height - 40000) / 1000.0
+
+    elif 50000 < height <= 60000:
+        return temperature_profile(50000, t0_celsius) - 2.3 * (height - 50000) / 1000.0
+
+    elif 60000 < height <= 80000:
+        return temperature_profile(60000, t0_celsius) - 2.45 * (height - 60000) / 1000.0
+
+    elif 80000 < height <= 100000:
+        return temperature_profile(80000, t0_celsius) - 0.1 * (height - 80000) / 1000.0
+
+    else:
+        # Выше 100 км продолжаем последний тренд
+        return temperature_profile(100000, t0_celsius) + 8.62 * (height - 100000) / 1000.0
 
 
 def pressure_profile(h, p0_mm):
     """Давление воздуха как функция высоты (барометрическая формула)."""
+    T = temperature_profile(h, T_SEA_LEVEL)  # уже в Кельвинах
     return (p0_mm * 133.32) * np.exp(
         -(AIR_MOLAR_MASS * 9.81 * h) /
-        (GAS_CONST * (temperature_profile(h, T_SEA_LEVEL) + 273.15))
+        (GAS_CONST * T)
     )
 
 
 def air_density(h):
     """Плотность воздуха как функция высоты."""
-    T = temperature_profile(h, T_SEA_LEVEL) + 273.15
+    T = temperature_profile(h, T_SEA_LEVEL)  # Кельвины
     P = pressure_profile(h, P_SEA_LEVEL)
+    # При желании можно убрать отсечку по 50 км, модель выше тоже определена
     return 0 if h >= 50000 else (P * AIR_MOLAR_MASS) / (GAS_CONST * T)
 
 
@@ -94,7 +131,7 @@ def sound_speed(temp_kelvin):
 def drag_force(r, phi, r_dot, phi_dot):
     """Расчёт аэродинамической силы сопротивления ракеты."""
     v2 = r_dot**2 + (r * phi_dot)**2
-    temp = temperature_profile(r - R_PLANET, T_SEA_LEVEL) + 273.15
+    temp = temperature_profile(r - R_PLANET, T_SEA_LEVEL)  # Кельвины
     mach = np.sqrt(v2) / sound_speed(temp)
     cx = lookup_drag_coefficient(mach)
     rho = air_density(r - R_PLANET)
